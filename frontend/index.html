@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoML Time Series Studio</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <!-- Multiple CDN fallbacks for Chart.js -->
+    <script>
+        function loadChartJS() {
+            // Try multiple CDNs
+            const cdnUrls = [
+                'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js',
+                'https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js'
+            ];
+
+            let currentIndex = 0;
+
+            function tryLoad() {
+                if (currentIndex >= cdnUrls.length) {
+                    console.error('All Chart.js CDNs failed');
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = cdnUrls[currentIndex];
+                script.onload = () => console.log('Chart.js loaded from:', cdnUrls[currentIndex]);
+                script.onerror = () => {
+                    console.log('Failed to load from:', cdnUrls[currentIndex]);
+                    currentIndex++;
+                    tryLoad();
+                };
+                document.head.appendChild(script);
+            }
+
+            tryLoad();
+        }
+
+        // Load Chart.js when page loads
+        window.addEventListener('DOMContentLoaded', loadChartJS);
+    </script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 AutoML Time Series Studio</h1>
+            <p>Upload CSV → Auto model selection → Forecast</p>
+        </header>
+
+        <div class="upload-section">
+            <h2>Step 1: Upload Time Series Data</h2>
+            <div class="upload-area" id="uploadArea">
+                <input type="file" id="fileInput" accept=".csv" hidden>
+                <button id="uploadBtn" class="btn-primary">📁 Select CSV File</button>
+                <div id="uploadStatus"></div>
+            </div>
+        </div>
+
+        <div class="forecast-section" id="forecastSection" style="display: none;">
+            <h2>Step 2: Configure Forecast</h2>
+            <div class="config-panel">
+                <label>
+                    Forecast Horizon (days):
+                    <input type="number" id="horizon" min="1" max="365" value="10">
+                </label>
+                <button id="forecastBtn" class="btn-success">🔮 Generate Forecast</button>
+            </div>
+
+            <div id="modelInfo" class="model-info"></div>
+
+            <div class="chart-container">
+                <canvas id="forecastChart" width="800" height="400" style="max-width: 100%; height: auto;"></canvas>
+                <div id="chartFallback" style="display: none; padding: 20px; background: #fff3cd; border-radius: 8px;"></div>
+            </div>
+
+            <div id="predictionsTable" class="predictions-table"></div>
+        </div>
+    </div>
+
+    <script src="/static/js/upload.js"></script>
+    <script src="/static/js/forecast_chart.js"></script>
+</body>
+</html>
