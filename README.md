@@ -42,11 +42,11 @@ python -m backend.app
 
 ## 🎯 Usage
 
-Open browser at http://localhost:8000
-Upload your time series CSV file (must have date and value columns)
-Set forecast horizon (1-365 days)
-Click "Generate Forecast"
-View predictions with automatic model selection
+- Open browser at http://localhost:8000
+- Upload your time series CSV file (must have date and value columns)
+- Set forecast horizon (1-365 days)
+- Click "Generate Forecast"
+- View predictions with automatic model selection
 
 ## 📊 Sample CSV Format
 
@@ -59,9 +59,9 @@ date,value
 
 ## 🤖 How AutoML Works
 
-< 30 data points: Uses XGBoost for short-term patterns
-30-100 points with seasonality: Uses Prophet for seasonal patterns
-Default: RandomForest for balanced performance
+- < 30 data points: Uses XGBoost for short-term patterns
+- 30-100 points with seasonality: Uses Prophet for seasonal patterns
+- Default: RandomForest for balanced performance
 
 ## 🗂️ Project Structure
 
@@ -86,4 +86,4 @@ MIT License
 
 ## 📧 Contact
 
-Your Name - [your.email@example.com]
+Mehrshad Mahmoudi - m.mahmoudi20633@gmail.com
