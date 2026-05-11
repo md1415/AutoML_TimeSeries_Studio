@@ -162,3 +162,60 @@ h2 {
         font-size: 1.5em;
     }
 }
+
+.config-row {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.config-row label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: normal;
+}
+
+.config-row input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+.chart-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 16px;
+    color: #666;
+    transition: all 0.3s;
+}
+
+.tab-btn:hover {
+    color: #667eea;
+}
+
+.tab-btn.active {
+    color: #667eea;
+    border-bottom: 2px solid #667eea;
+    margin-bottom: -2px;
+}
+
+.chart-container {
+    min-height: 450px;
+    position: relative;
+}
+
+.model-info {
+    background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+    border-left: 4px solid #667eea;
+}

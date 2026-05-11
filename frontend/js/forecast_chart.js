@@ -2,193 +2,182 @@ const forecastBtn = document.getElementById('forecastBtn');
 const horizonInput = document.getElementById('horizon');
 const modelInfoDiv = document.getElementById('modelInfo');
 const predictionsTable = document.getElementById('predictionsTable');
+const includeConfidence = document.getElementById('includeConfidence');
+const compareModels = document.getElementById('compareModels');
 
 let chartInstance = null;
+let currentData = null;
 
-// Function to check if Chart.js is loaded
-function isChartLoaded() {
-    return typeof Chart !== 'undefined';
-}
-
-// Function to display simple table-based chart if Chart.js is not available
-function displaySimpleTableChart(data) {
-    const predictions = data.predictions;
-    const container = document.getElementById('chartFallback');
-    const canvas = document.getElementById('forecastChart');
-
-    canvas.style.display = 'none';
-    container.style.display = 'block';
-
-    let html = '<h3>📊 Forecast Values (Chart.js not available)</h3>';
-    html += '<table style="width: 100%; border-collapse: collapse;">';
-    html += '<thead><tr style="background: #667eea; color: white;">';
-    html += '<th style="padding: 8px;">Step</th>';
-    html += '<th style="padding: 8px;">Predicted Value</th>';
-    html += '<th style="padding: 8px;">Visualization</th>';
-    html += '</tr></thead><tbody>';
-
-    const maxValue = Math.max(...predictions);
-
-    predictions.forEach((value, index) => {
-        const barWidth = (value / maxValue) * 100;
-        html += '<tr>';
-        html += `<td style="padding: 8px; text-align: center;">${index + 1}</td>`;
-        html += `<td style="padding: 8px; text-align: center;">${value.toFixed(4)}</td>`;
-        html += `<td style="padding: 8px;">
-                    <div style="background: #667eea; width: ${barWidth}%; height: 20px; border-radius: 10px; color: white; padding-left: 5px; line-height: 20px;">
-                        ${value.toFixed(2)}
-                    </div>
-                  </td>`;
-        html += '</tr>';
-    });
-
-    html += '</tbody></table>';
-    container.innerHTML = html;
-}
-
-function displayModelInfo(data) {
-    let infoHtml = `<strong>🤖 Model Selected:</strong> ${data.model_used}<br>`;
-
-    if (data.training_info.model_used) {
-        infoHtml += `<strong>📊 Data Points:</strong> ${data.training_info.data_points}<br>`;
-        infoHtml += `<strong>⚠️ Anomalies Removed:</strong> ${data.training_info.anomalies_removed}<br>`;
-        if (data.training_info.seasonality_score !== undefined) {
-            infoHtml += `<strong>📈 Seasonality Score:</strong> ${data.training_info.seasonality_score.toFixed(3)}<br>`;
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (currentData) {
+            renderCurrentChart(btn.dataset.tab);
         }
-    } else if (data.training_info.status) {
-        infoHtml += `<strong>💾 Status:</strong> ${data.training_info.status}<br>`;
-    }
+    });
+});
 
-    modelInfoDiv.innerHTML = infoHtml;
+function renderCurrentChart(tabName) {
+    if (!currentData) return;
+
+    if (tabName === 'comparison' && currentData.model_comparison) {
+        renderComparisonChart(currentData);
+    } else if (tabName === 'historical' && currentData.historical_data) {
+        renderHistoricalChart(currentData);
+    } else {
+        renderForecastChart(currentData);
+    }
 }
 
-function displayChart(data) {
+function renderForecastChart(data) {
     const predictions = data.predictions;
-    const horizon = data.horizon;
-
-    // Check if Chart.js is loaded
-    if (!isChartLoaded()) {
-        displaySimpleTableChart(data);
-        return;
-    }
-
-    // Destroy existing chart if it exists
-    if (chartInstance) {
-        chartInstance.destroy();
-    }
-
     const canvas = document.getElementById('forecastChart');
     const fallbackDiv = document.getElementById('chartFallback');
+
+    if (typeof Chart === 'undefined') {
+        canvas.style.display = 'none';
+        fallbackDiv.style.display = 'block';
+        fallbackDiv.innerHTML = '<div style="padding: 20px; background: #fff3cd;">Chart.js not available. Using table view.</div>';
+        return;
+    }
 
     canvas.style.display = 'block';
     fallbackDiv.style.display = 'none';
 
-    const ctx = canvas.getContext('2d');
+    if (chartInstance) chartInstance.destroy();
 
+    const datasets = [{
+        label: 'Forecast',
+        data: predictions,
+        borderColor: '#ff6b6b',
+        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+        borderWidth: 3,
+        fill: true
+    }];
+
+    if (data.confidence_intervals && includeConfidence.checked) {
+        const lower = data.confidence_intervals.lower;
+        const upper = data.confidence_intervals.upper;
+
+        datasets.push({
+            label: 'Confidence Upper',
+            data: upper,
+            borderColor: 'rgba(255, 107, 107, 0.3)',
+            backgroundColor: 'rgba(255, 107, 107, 0.05)',
+            borderWidth: 1,
+            fill: '+1'
+        });
+
+        datasets.push({
+            label: 'Confidence Lower',
+            data: lower,
+            borderColor: 'rgba(255, 107, 107, 0.3)',
+            backgroundColor: 'rgba(255, 107, 107, 0.05)',
+            borderWidth: 1,
+            fill: false
+        });
+    }
+
+    const ctx = canvas.getContext('2d');
     chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: Array.from({length: predictions.length}, (_, i) => `Step ${i + 1}`),
-            datasets: [{
-                label: 'Forecast Values',
-                data: predictions,
-                borderColor: '#ff6b6b',
-                backgroundColor: 'rgba(255, 107, 107, 0.1)',
-                borderWidth: 3,
-                pointRadius: 6,
-                pointHoverRadius: 8,
-                pointBackgroundColor: '#ff6b6b',
-                tension: 0.1,
-                fill: true
-            }]
+            datasets: datasets
         },
         options: {
             responsive: true,
-            maintainAspectRatio: true,
             plugins: {
-                title: {
-                    display: true,
-                    text: `Time Series Forecast - Next ${horizon} Steps`,
-                    font: {
-                        size: 18,
-                        weight: 'bold'
-                    }
-                },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false
-                },
-                legend: {
-                    position: 'top',
-                    labels: {
-                        font: {
-                            size: 14
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    title: {
-                        display: true,
-                        text: 'Predicted Value',
-                        font: {
-                            size: 14
-                        }
-                    },
-                    grid: {
-                        color: '#e0e0e0'
-                    }
-                },
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Time Steps (Future)',
-                        font: {
-                            size: 14
-                        }
-                    },
-                    grid: {
-                        color: '#e0e0e0'
-                    }
-                }
+                title: { display: true, text: `Forecast - Next ${data.horizon} Steps` },
+                tooltip: { mode: 'index', intersect: false }
             }
         }
     });
 }
 
-function displayPredictionsTable(data) {
+function renderComparisonChart(data) {
+    const comparison = data.model_comparison;
+    const canvas = document.getElementById('forecastChart');
+
+    if (chartInstance) chartInstance.destroy();
+
+    const ctx = canvas.getContext('2d');
+    chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array.from({length: comparison.xgb.length}, (_, i) => `Step ${i + 1}`),
+            datasets: [
+                { label: 'XGBoost', data: comparison.xgb, borderColor: '#ff6b6b', borderWidth: 2, fill: false },
+                { label: 'Prophet', data: comparison.prophet, borderColor: '#4ecdc4', borderWidth: 2, fill: false },
+                { label: 'Random Forest', data: comparison.random_forest, borderColor: '#45b7d1', borderWidth: 2, fill: false }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { title: { display: true, text: 'Model Comparison' } }
+        }
+    });
+}
+
+function renderHistoricalChart(data) {
+    const historical = data.historical_data;
     const predictions = data.predictions;
+    const canvas = document.getElementById('forecastChart');
 
-    let tableHtml = '<h3>📋 Prediction Details</h3><table style="width: 100%; border-collapse: collapse;">';
-    tableHtml += '<thead><tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">';
-    tableHtml += '<th style="padding: 10px; border: 1px solid #ddd;">Step</th>';
-    tableHtml += '<th style="padding: 10px; border: 1px solid #ddd;">Predicted Value</th>';
-    tableHtml += '<tr></thead><tbody>';
+    if (chartInstance) chartInstance.destroy();
 
-    predictions.forEach((value, index) => {
-        const rowColor = index % 2 === 0 ? '#f9f9f9' : 'white';
-        tableHtml += `<tr style="background-color: ${rowColor};">`;
-        tableHtml += `<td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${index + 1}</td>`;
-        tableHtml += `<td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${value.toFixed(4)}</td>`;
+    const allValues = [...historical.values, ...predictions];
+    const allLabels = [...historical.dates, ...Array.from({length: predictions.length}, (_, i) => `Forecast ${i + 1}`)];
+
+    const ctx = canvas.getContext('2d');
+    chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: allLabels,
+            datasets: [
+                { label: 'Historical Data', data: [...historical.values, ...Array(predictions.length).fill(null)], borderColor: '#667eea', borderWidth: 3, fill: false },
+                { label: 'Forecast', data: [...Array(historical.values.length).fill(null), ...predictions], borderColor: '#ff6b6b', borderWidth: 3, fill: false }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { title: { display: true, text: 'Historical + Forecast' } }
+        }
+    });
+}
+
+function displayModelInfo(data) {
+    let infoHtml = `<strong>🤖 Model Selected:</strong> ${data.model_used}<br>`;
+    if (data.training_info.model_used) {
+        infoHtml += `<strong>📊 Data Points:</strong> ${data.training_info.data_points}<br>`;
+        infoHtml += `<strong>⚠️ Anomalies Removed:</strong> ${data.training_info.anomalies_removed}<br>`;
+        infoHtml += `<strong>📈 Seasonality Score:</strong> ${(data.training_info.seasonality_score || 0).toFixed(3)}<br>`;
+    }
+    modelInfoDiv.innerHTML = infoHtml;
+}
+
+function displayPredictionsTable(data) {
+    let tableHtml = '<h3>📋 Prediction Details</h3><table>';
+    tableHtml += '<thead><tr><th>Step</th><th>Value</th>';
+    if (data.confidence_intervals) tableHtml += '<th>Lower (95%)</th><th>Upper (95%)</th>';
+    tableHtml += '</tr></thead><tbody>';
+
+    data.predictions.forEach((value, i) => {
+        tableHtml += `<tr><td>${i + 1}</td><td>${value.toFixed(4)}</td>`;
+        if (data.confidence_intervals) {
+            tableHtml += `<td>${data.confidence_intervals.lower[i].toFixed(4)}</td>`;
+            tableHtml += `<td>${data.confidence_intervals.upper[i].toFixed(4)}</td>`;
+        }
         tableHtml += '</tr>';
     });
-
     tableHtml += '</tbody></table>';
     predictionsTable.innerHTML = tableHtml;
 }
 
 forecastBtn.addEventListener('click', async () => {
-    if (!currentFileId) {
-        alert('Please upload a CSV file first');
-        return;
-    }
-
-    const horizon = parseInt(horizonInput.value);
-    if (horizon < 1 || horizon > 365) {
-        alert('Horizon must be between 1 and 365');
-        return;
-    }
+    if (!currentFileId) return alert('Upload CSV first');
 
     forecastBtn.disabled = true;
     forecastBtn.textContent = '⏳ Processing...';
@@ -196,26 +185,24 @@ forecastBtn.addEventListener('click', async () => {
     try {
         const response = await fetch('/api/forecast', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 file_id: currentFileId,
-                horizon: horizon
+                horizon: parseInt(horizonInput.value),
+                include_confidence: includeConfidence.checked,
+                compare_models: compareModels.checked
             })
         });
 
         const data = await response.json();
-
         if (response.ok) {
+            currentData = data;
             displayModelInfo(data);
-            displayChart(data);
             displayPredictionsTable(data);
-        } else {
-            alert(`Error: ${data.detail}`);
-        }
+            renderCurrentChart(document.querySelector('.tab-btn.active').dataset.tab);
+        } else alert(`Error: ${data.detail}`);
     } catch (error) {
-        alert(`Forecast failed: ${error.message}`);
+        alert(`Failed: ${error.message}`);
     } finally {
         forecastBtn.disabled = false;
         forecastBtn.textContent = '🔮 Generate Forecast';

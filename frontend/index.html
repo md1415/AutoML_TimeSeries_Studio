@@ -3,49 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoML Time Series Studio</title>
+    <title>AutoML Time Series Studio - Advanced Dashboard</title>
     <link rel="stylesheet" href="/static/css/styles.css">
-    <!-- Multiple CDN fallbacks for Chart.js -->
-    <script>
-        function loadChartJS() {
-            // Try multiple CDNs
-            const cdnUrls = [
-                'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
-                'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js',
-                'https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js'
-            ];
-
-            let currentIndex = 0;
-
-            function tryLoad() {
-                if (currentIndex >= cdnUrls.length) {
-                    console.error('All Chart.js CDNs failed');
-                    return;
-                }
-
-                const script = document.createElement('script');
-                script.src = cdnUrls[currentIndex];
-                script.onload = () => console.log('Chart.js loaded from:', cdnUrls[currentIndex]);
-                script.onerror = () => {
-                    console.log('Failed to load from:', cdnUrls[currentIndex]);
-                    currentIndex++;
-                    tryLoad();
-                };
-                document.head.appendChild(script);
-            }
-
-            tryLoad();
-        }
-
-        // Load Chart.js when page loads
-        window.addEventListener('DOMContentLoaded', loadChartJS);
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>🚀 AutoML Time Series Studio</h1>
-            <p>Upload CSV → Auto model selection → Forecast</p>
+            <p>Advanced Dashboard | Model Comparison | Confidence Intervals</p>
         </header>
 
         <div class="upload-section">
@@ -60,18 +26,34 @@
         <div class="forecast-section" id="forecastSection" style="display: none;">
             <h2>Step 2: Configure Forecast</h2>
             <div class="config-panel">
-                <label>
-                    Forecast Horizon (days):
-                    <input type="number" id="horizon" min="1" max="365" value="10">
-                </label>
+                <div class="config-row">
+                    <label>
+                        Forecast Horizon (days):
+                        <input type="number" id="horizon" min="1" max="365" value="10">
+                    </label>
+                    <label>
+                        <input type="checkbox" id="includeConfidence" checked>
+                        Show Confidence Intervals
+                    </label>
+                    <label>
+                        <input type="checkbox" id="compareModels">
+                        Compare All Models
+                    </label>
+                </div>
                 <button id="forecastBtn" class="btn-success">🔮 Generate Forecast</button>
             </div>
 
             <div id="modelInfo" class="model-info"></div>
 
+            <div class="chart-tabs">
+                <button class="tab-btn active" data-tab="forecast">Forecast Chart</button>
+                <button class="tab-btn" data-tab="comparison">Model Comparison</button>
+                <button class="tab-btn" data-tab="historical">Historical + Forecast</button>
+            </div>
+
             <div class="chart-container">
                 <canvas id="forecastChart" width="800" height="400" style="max-width: 100%; height: auto;"></canvas>
-                <div id="chartFallback" style="display: none; padding: 20px; background: #fff3cd; border-radius: 8px;"></div>
+                <div id="chartFallback" style="display: none;"></div>
             </div>
 
             <div id="predictionsTable" class="predictions-table"></div>
