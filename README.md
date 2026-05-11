@@ -3,6 +3,8 @@
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.95-green.svg)](https://fastapi.tiangolo.com)
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.13-orange.svg)](https://tensorflow.org)
+[![CI/CD Pipeline](https://github.com/YOUR_USERNAME/AutoML_TS_Studio/actions/workflows/test.yml/badge.svg)](https://github.com/YOUR_USERNAME/AutoML_TS_Studio/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/YOUR_USERNAME/AutoML_TS_Studio/branch/main/graph/badge.svg)](https://codecov.io/gh/YOUR_USERNAME/AutoML_TS_Studio)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An intelligent web-based tool for automatic time series forecasting. Upload your CSV, and the system automatically selects the best model (XGBoost/Prophet/RandomForest/LSTM) and generates forecasts with confidence intervals.
@@ -166,6 +168,19 @@ AutoML_TS_Studio/
 ├── requirements.txt     # Python dependencies
 └── README.md
 ```
+## 📸 Screenshots
+
+### Main Dashboard
+![Dashboard](screenshots/dashboard.png)
+
+### Forecast with Confidence Intervals
+![Forecast Chart](screenshots/forecast_chart.png)
+
+### Model Comparison (All 4 Models)
+![Model Comparison](screenshots/model_comparison.png)
+
+### Predictions Table
+![Predictions Table](screenshots/predictions_table.png)
 
 ## 📈 Example Output
 
