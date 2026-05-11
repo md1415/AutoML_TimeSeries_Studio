@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from backend.automl.model_selector import ModelSelector
 from backend.automl.trainer import AutoMLTrainer
+from .export import set_prediction_cache
 
 router = APIRouter()
 
@@ -100,23 +101,45 @@ async def forecast(request: ForecastRequest):
 
         if request.compare_models:
             model_selector = ModelSelector()
-            model_keys = ["short_term", "seasonal", "baseline"]
+
+            # All 4 models for comparison
+            model_configs = [
+                ("short_term", "XGBoost"),
+                ("seasonal", "Prophet"),
+                ("baseline", "Random Forest"),
+                ("lstm", "LSTM")
+            ]
+
             comparison_predictions = {}
 
-            for key in model_keys:
-                temp_trainer = AutoMLTrainer(auto_save=False)
-                temp_model = model_selector.get_model(key)
-                scaled_values = (values - np.min(values)) / (np.max(values) - np.min(values))
-                temp_model.fit(dates, scaled_values)
-                scaled_pred = temp_model.predict(request.horizon)
-                original_pred = scaled_pred * (np.max(values) - np.min(values)) + np.min(values)
-                comparison_predictions[key] = original_pred.tolist()
+            # Calculate min/max for scaling/unscaling
+            min_val = float(np.min(values))
+            max_val = float(np.max(values))
+            range_val = max_val - min_val if max_val - min_val > 0 else 1.0
 
-            model_comparison = {
-                "xgb": comparison_predictions.get("short_term", []),
-                "prophet": comparison_predictions.get("seasonal", []),
-                "random_forest": comparison_predictions.get("baseline", [])
-            }
+            for model_key, model_name in model_configs:
+                try:
+                    temp_trainer = AutoMLTrainer(auto_save=False)
+                    temp_model = model_selector.get_model(model_key)
+
+                    # Scale values to [0,1] range for better model performance
+                    scaled_values = (values - min_val) / range_val
+
+                    temp_model.fit(dates, scaled_values)
+                    scaled_pred = temp_model.predict(request.horizon)
+
+                    # Inverse transform to original scale
+                    original_pred = scaled_pred * range_val + min_val
+                    comparison_predictions[model_name] = original_pred.tolist()
+
+                    print(f"✓ Model {model_name} completed successfully")
+
+                except Exception as e:
+                    print(f"✗ Model {model_name} failed: {str(e)}")
+                    # Fill with None values if model fails
+                    comparison_predictions[model_name] = [None] * request.horizon
+
+            model_comparison = comparison_predictions
 
         if not request.force_retrain and request.model_id:
             trainer = AutoMLTrainer(auto_save=False)
@@ -135,6 +158,9 @@ async def forecast(request: ForecastRequest):
             model_used = trainer.model_name
 
         predictions = trainer.predict(request.horizon)
+
+        # Store predictions for export
+        set_prediction_cache(request.file_id, predictions.tolist(), model_used)
 
         response_data = {
             "status": "success",

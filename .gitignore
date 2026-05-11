@@ -21,18 +21,47 @@ venv/
 *.swp
 *.swo
 *~
+.DS_Store
+Thumbs.db
 
 # Project specific
 temp_uploads/
 saved_models/
 *.csv
 *.log
+*.xlsx
+*.xls
+*.pdf
+uploads/
+excel/
+*.db
+*.sqlite
 
-# DS Store
-.DS_Store
-Thumbs.db
-
-# Python cache
-*.pyc
+# Cache and temp files
 .pytest_cache/
 .mypy_cache/
+.coverage
+htmlcov/
+.tox/
+*.egg-info/
+dist/
+build/
+
+# Prediction cache
+prediction_cache.json
+
+# Docker
+*.pid
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

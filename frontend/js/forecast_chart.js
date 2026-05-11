@@ -100,23 +100,61 @@ function renderForecastChart(data) {
 function renderComparisonChart(data) {
     const comparison = data.model_comparison;
     const canvas = document.getElementById('forecastChart');
+    const fallbackDiv = document.getElementById('chartFallback');
+
+    if (typeof Chart === 'undefined') {
+        canvas.style.display = 'none';
+        fallbackDiv.style.display = 'block';
+        fallbackDiv.innerHTML = '<div style="padding: 20px;">Chart.js not available</div>';
+        return;
+    }
+
+    canvas.style.display = 'block';
+    fallbackDiv.style.display = 'none';
 
     if (chartInstance) chartInstance.destroy();
+
+    // Define colors for each model
+    const modelColors = {
+        'XGBoost': '#ff6b6b',
+        'Prophet': '#4ecdc4',
+        'Random Forest': '#45b7d1',
+        'LSTM': '#96ceb4'
+    };
+
+    const datasets = [];
+    const labels = Array.from({length: comparison.XGBoost?.length || 10}, (_, i) => `Step ${i + 1}`);
+
+    for (const [modelName, predictions] of Object.entries(comparison)) {
+        if (predictions && predictions.length > 0) {
+            datasets.push({
+                label: modelName,
+                data: predictions,
+                borderColor: modelColors[modelName] || '#888',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.1
+            });
+        }
+    }
 
     const ctx = canvas.getContext('2d');
     chartInstance = new Chart(ctx, {
         type: 'line',
-        data: {
-            labels: Array.from({length: comparison.xgb.length}, (_, i) => `Step ${i + 1}`),
-            datasets: [
-                { label: 'XGBoost', data: comparison.xgb, borderColor: '#ff6b6b', borderWidth: 2, fill: false },
-                { label: 'Prophet', data: comparison.prophet, borderColor: '#4ecdc4', borderWidth: 2, fill: false },
-                { label: 'Random Forest', data: comparison.random_forest, borderColor: '#45b7d1', borderWidth: 2, fill: false }
-            ]
-        },
+        data: { labels: labels, datasets: datasets },
         options: {
             responsive: true,
-            plugins: { title: { display: true, text: 'Model Comparison' } }
+            maintainAspectRatio: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Model Comparison - All 4 Models',
+                    font: { size: 16 }
+                },
+                tooltip: { mode: 'index', intersect: false },
+                legend: { position: 'top' }
+            }
         }
     });
 }
@@ -207,4 +245,17 @@ forecastBtn.addEventListener('click', async () => {
         forecastBtn.disabled = false;
         forecastBtn.textContent = '🔮 Generate Forecast';
     }
+});
+
+// Download buttons
+document.getElementById('downloadExcelBtn')?.addEventListener('click', async () => {
+    if (!currentFileId) return alert('Please upload a file first');
+    const horizon = document.getElementById('horizon').value;
+    window.open(`/api/export/excel/${currentFileId}?horizon=${horizon}`, '_blank');
+});
+
+document.getElementById('downloadPdfBtn')?.addEventListener('click', async () => {
+    if (!currentFileId) return alert('Please upload a file first');
+    const horizon = document.getElementById('horizon').value;
+    window.open(`/api/export/pdf/${currentFileId}?horizon=${horizon}`, '_blank');
 });

@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  automl-studio:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./temp_uploads:/app/temp_uploads
+      - ./saved_models:/app/saved_models
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped

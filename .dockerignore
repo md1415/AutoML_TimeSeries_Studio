@@ -1,0 +1,10 @@
+.venv
+__pycache__
+*.pyc
+.git
+.gitignore
+*.md
+temp_uploads/*
+saved_models/*
+!temp_uploads/.gitkeep
+!saved_models/.gitkeep

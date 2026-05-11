@@ -219,3 +219,24 @@ h2 {
     background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
     border-left: 4px solid #667eea;
 }
+
+.btn-secondary {
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.btn-secondary:hover {
+    transform: translateY(-2px);
+}
+
+.download-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}

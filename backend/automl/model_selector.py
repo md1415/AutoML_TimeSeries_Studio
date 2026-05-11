@@ -1,23 +1,36 @@
 import numpy as np
-from .base_models import XGBoostWrapper, ProphetWrapper, RandomForestWrapper
+from .base_models import XGBoostWrapper, ProphetWrapper, RandomForestWrapper, LSTMWrapper
 
 
 class ModelSelector:
-    def __init__(self):
+    def __init__(self, values=None):
+        self.values = values
         self.models = {
             "short_term": XGBoostWrapper(),
             "seasonal": ProphetWrapper(),
-            "baseline": RandomForestWrapper()
+            "baseline": RandomForestWrapper(),
+            "lstm": None
         }
 
     def select_model(self, values: np.ndarray, dates: np.ndarray) -> str:
         n_points = len(values)
+        self.values = values
 
+        # Rule 1: Very small datasets -> XGBoost
         if n_points < 30:
             return "short_term"
 
-        seasonal_strength = self._detect_seasonality(values)
+        # Rule 2: Medium datasets (30-50) -> RandomForest
+        if n_points < 50:
+            return "baseline"
 
+        # Rule 3: Large datasets (>=50) -> ALWAYS use LSTM first
+        # This overrides Prophet for large datasets
+        if n_points >= 50:
+            return "lstm"
+
+        # Rule 4: Seasonal detection (only for Prophet if LSTM fails)
+        seasonal_strength = self._detect_seasonality(values)
         if seasonal_strength > 0.4 and n_points >= 60:
             return "seasonal"
 
@@ -44,4 +57,12 @@ class ModelSelector:
         return min(seasonal_ratio, 1.0)
 
     def get_model(self, model_key: str):
+        if model_key == "lstm":
+            if self.values is not None:
+                lookback = max(5, min(30, int(len(self.values) * 0.15)))
+                print(f"Initializing LSTM with lookback={lookback}, data_points={len(self.values)}")
+                return LSTMWrapper(lookback=lookback, epochs=50)
+            else:
+                return LSTMWrapper(lookback=10, epochs=50)
+
         return self.models.get(model_key, self.models["baseline"])
