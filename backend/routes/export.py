@@ -7,7 +7,11 @@ from datetime import datetime
 
 router = APIRouter()
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "temp_uploads")
+UPLOAD_DIR = os.path.join(
+    os.path.dirname(
+        os.path.dirname(
+            os.path.dirname(__file__))),
+    "temp_uploads")
 
 # Global cache for predictions
 _prediction_cache = {}
@@ -59,8 +63,20 @@ async def export_to_excel(file_id: str, horizon: int = 10):
             forecast_df.to_excel(writer, sheet_name='Forecast', index=False)
 
             summary_df = pd.DataFrame({
-                'Info': ['Total Rows', 'Columns', 'Horizon', 'Model', 'Generated'],
-                'Value': [len(df), len(df.columns), horizon, model_used, datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
+                'Info': [
+                    'Total Rows',
+                    'Columns',
+                    'Horizon',
+                    'Model',
+                    'Generated'
+                ],
+                'Value': [
+                    len(df),
+                    len(df.columns),
+                    horizon,
+                    model_used,
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                ]
             })
             summary_df.to_excel(writer, sheet_name='Summary', index=False)
 
@@ -68,12 +84,20 @@ async def export_to_excel(file_id: str, horizon: int = 10):
 
         return StreamingResponse(
             output,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename=forecast_{file_id}.xlsx"}
+            media_type=(
+                "application/vnd.openxmlformats-officedocument."
+                "spreadsheetml.sheet"
+            ),
+            headers={
+                "Content-Disposition": f"attachment;"
+                                       f" filename=forecast_{file_id}.xlsx"}
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Excel export failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Excel export failed: {str(e)}"
+        )
 
 
 @router.get("/pdf/{file_id}")
@@ -85,7 +109,12 @@ async def export_to_pdf(file_id: str, horizon: int = 10):
 
     try:
         from reportlab.lib.pagesizes import A4
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.platypus import (SimpleDocTemplate,
+                                        Paragraph,
+                                        Spacer,
+                                        Table,
+                                        TableStyle
+                                        )
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib import colors
 
@@ -110,27 +139,41 @@ async def export_to_pdf(file_id: str, horizon: int = 10):
             alignment=1,
             spaceAfter=20
         )
-        story.append(Paragraph("AutoML Time Series Studio - Forecast Report", title_style))
+        story.append(
+            Paragraph(
+                "AutoML Time Series Studio - Forecast Report",
+                title_style))
         story.append(Spacer(1, 10))
 
         # Report info
-        story.append(Paragraph(f"<b>Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
+        story.append(
+            Paragraph(
+                f"<b>Generated:</b>"
+                f" {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                styles['Normal']
+            )
+        )
         story.append(Paragraph(f"<b>File ID:</b> {file_id}", styles['Normal']))
-        story.append(Paragraph(f"<b>Forecast Horizon:</b> {horizon} steps", styles['Normal']))
+        story.append(Paragraph(f"<b>Forecast Horizon:</b> {horizon} steps",
+                               styles['Normal']))
 
         if predictions:
-            story.append(Paragraph(f"<b>Model Used:</b> {model_used}", styles['Normal']))
+            story.append(Paragraph(f"<b>Model Used:</b> {model_used}",
+                                   styles['Normal']))
 
         story.append(Spacer(1, 20))
 
         # Data summary
         story.append(Paragraph("Data Summary", styles['Heading2']))
         story.append(Paragraph(f"• Total rows: {len(df)}", styles['Normal']))
-        story.append(Paragraph(f"• Columns: {', '.join(df.columns.tolist())}", styles['Normal']))
+        story.append(
+            Paragraph(f"• Columns: {', '.join(df.columns.tolist())}",
+                      styles['Normal']))
         story.append(Spacer(1, 10))
 
         # First 10 rows table
-        story.append(Paragraph("Sample Data (First 10 rows):", styles['Heading3']))
+        story.append(Paragraph(
+            "Sample Data (First 10 rows):", styles['Heading3']))
 
         # Prepare table data
         table_data = [df.columns.tolist()]
@@ -175,7 +218,10 @@ async def export_to_pdf(file_id: str, horizon: int = 10):
             ]))
             story.append(forecast_table)
         else:
-            story.append(Paragraph("No forecast available. Please run forecast first.", styles['Normal']))
+            story.append(
+                Paragraph(
+                    "No forecast available. Please run forecast first.",
+                    styles['Normal']))
 
         # Build PDF
         doc.build(story)
@@ -184,7 +230,8 @@ async def export_to_pdf(file_id: str, horizon: int = 10):
         return StreamingResponse(
             output,
             media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=forecast_report_{file_id}.pdf"}
+            headers={"Content-Disposition": f"attachment; filename"
+                                            f"=forecast_report_{file_id}.pdf"}
         )
 
     except Exception as e:

@@ -21,7 +21,11 @@ class BaseModelWrapper:
 class XGBoostWrapper(BaseModelWrapper):
     def __init__(self):
         super().__init__("XGBoost")
-        self.model = XGBRegressor(n_estimators=100, max_depth=5, random_state=42)
+        self.model = XGBRegressor(
+            n_estimators=100,
+            max_depth=5,
+            random_state=42
+        )
         self.X_train = None
 
     def fit(self, dates: np.ndarray, values: np.ndarray):
@@ -51,7 +55,11 @@ class ProphetWrapper(BaseModelWrapper):
             'ds': pd.to_datetime(dates),
             'y': values
         })
-        self.model = Prophet(yearly_seasonality=False, weekly_seasonality=False, daily_seasonality=False)
+        self.model = Prophet(
+            yearly_seasonality=False,
+            weekly_seasonality=False,
+            daily_seasonality=False
+        )
         self.model.fit(df)
         self.last_date = df['ds'].max()
         self.fitted = True
@@ -60,7 +68,10 @@ class ProphetWrapper(BaseModelWrapper):
         if not self.fitted:
             raise ValueError("Model not fitted")
         import pandas as pd
-        future_dates = pd.date_range(start=self.last_date, periods=horizon + 1, freq='D')[1:]
+        future_dates = pd.date_range(
+            start=self.last_date,
+            periods=horizon + 1,
+            freq='D')[1:]
         future_df = pd.DataFrame({'ds': future_dates})
         forecast = self.model.predict(future_df)
         return forecast['yhat'].values
@@ -109,23 +120,32 @@ class LSTMWrapper(BaseModelWrapper):
             from tensorflow.keras.layers import LSTM, Dense, Dropout
             from tensorflow.keras.callbacks import EarlyStopping
         except ImportError:
-            raise ImportError("TensorFlow not installed. Install with: pip install tensorflow")
+            raise ImportError(
+                "TensorFlow not installed."
+                " Install with: pip install tensorflow")
 
         # Normalize data
-        scaled_values = self.scaler.fit_transform(values.reshape(-1, 1)).flatten()
+        scaled_values = (
+            self.scaler.fit_transform(values.reshape(-1, 1)).flatten()
+        )
 
         # Create sequences
         X, y = self._create_sequences(scaled_values)
 
         if len(X) == 0:
-            raise ValueError(f"Not enough data for LSTM. Need at least {self.lookback + 1} points")
+            raise ValueError(
+                f"Not enough data for LSTM."
+                f" Need at least {self.lookback + 1} points")
 
         # Reshape for LSTM [samples, time steps, features]
         X = X.reshape((X.shape[0], X.shape[1], 1))
 
         # Build LSTM model
         self.model = Sequential([
-            LSTM(50, activation='relu', return_sequences=True, input_shape=(self.lookback, 1)),
+            LSTM(50, activation='relu',
+                 return_sequences=True,
+                 input_shape=(self.lookback, 1)
+                 ),
             Dropout(0.2),
             LSTM(50, activation='relu'),
             Dropout(0.2),
@@ -135,10 +155,21 @@ class LSTMWrapper(BaseModelWrapper):
         self.model.compile(optimizer='adam', loss='mse')
 
         # Early stopping
-        early_stop = EarlyStopping(monitor='loss', patience=5, restore_best_weights=True)
+        early_stop = EarlyStopping(
+            monitor='loss',
+            patience=5,
+            restore_best_weights=True
+        )
 
         # Train
-        self.model.fit(X, y, epochs=self.epochs, batch_size=8, verbose=0, callbacks=[early_stop])
+        self.model.fit(
+            X,
+            y,
+            epochs=self.epochs,
+            batch_size=8,
+            verbose=0,
+            callbacks=[early_stop]
+        )
 
         # Store last sequence for prediction
         self.last_sequence = scaled_values[-self.lookback:]
@@ -167,6 +198,8 @@ class LSTMWrapper(BaseModelWrapper):
 
         # Inverse transform to original scale
         predictions = np.array(predictions).reshape(-1, 1)
-        original_predictions = self.scaler.inverse_transform(predictions).flatten()
+        original_predictions = (
+            self.scaler.inverse_transform(predictions).flatten()
+        )
 
         return original_predictions

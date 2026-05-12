@@ -45,8 +45,9 @@ class SavedModelInfo(BaseModel):
     seasonality_score: float
 
 
-def calculate_confidence_intervals(predictions: np.ndarray, method: str = "bootstrap") -> Dict[str, list]:
-    """Calculate simple confidence intervals based on prediction std"""
+def calculate_confidence_intervals(
+        predictions: np.ndarray,
+        method: str = "bootstrap") -> Dict[str, list]:
     if method == "simple":
         std_dev = np.std(predictions) * 0.1
         lower = predictions - 1.96 * std_dev
@@ -55,12 +56,110 @@ def calculate_confidence_intervals(predictions: np.ndarray, method: str = "boots
         std_dev = np.std(predictions) * 0.15
         lower = predictions - 1.96 * std_dev
         upper = predictions + 1.96 * std_dev
+    return {"lower": lower.tolist(), "upper": upper.tolist()}
 
-    return {
-        "lower": lower.tolist(),
-        "upper": upper.tolist()
-    }
 
+# ========== helper functions to reduce complexity ==========
+
+def _validate_data(df, request):
+    """Validate CSV and extract data"""
+    if request.date_column and request.value_column:
+        # flake8: noqa: E503
+        if (request.date_column not in df.columns
+                or request.value_column not in df.columns):
+            raise HTTPException(
+                status_code=400,
+                detail="Specified columns not found"
+            )
+        dates = pd.to_datetime(df[request.date_column]).values
+        values = df[request.value_column].values.astype(float)
+        date_strings = df[request.date_column].astype(str).tolist()
+    else:
+        if df.shape[1] < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="CSV must have at least 2 columns"
+            )
+        dates = pd.to_datetime(df.iloc[:, 0]).values
+        values = df.iloc[:, 1].values.astype(float)
+        date_strings = df.iloc[:, 0].astype(str).tolist()
+
+    if len(values) < 10:
+        raise HTTPException(
+            status_code=400,
+            detail="Need at least 10 data points"
+        )
+
+    if request.horizon < 1 or request.horizon > 365:
+        raise HTTPException(
+            status_code=400,
+            detail="Horizon must be between 1 and 365"
+        )
+
+    return dates, values, date_strings
+
+
+def _run_all_models_comparison(values, dates, horizon):
+    """Run comparison for all 4 models: XGBoost, Prophet, RandomForest, LSTM"""
+    model_selector = ModelSelector()
+
+    model_configs = [
+        ("short_term", "XGBoost"),
+        ("seasonal", "Prophet"),
+        ("baseline", "Random Forest"),
+        ("lstm", "LSTM")
+    ]
+
+    comparison_predictions = {}
+    min_val = float(np.min(values))
+    max_val = float(np.max(values))
+    range_val = max_val - min_val if max_val - min_val > 0 else 1.0
+
+    for model_key, model_name in model_configs:
+        try:
+            temp_model = model_selector.get_model(model_key)
+            scaled_values = (values - min_val) / range_val
+            temp_model.fit(dates, scaled_values)
+            scaled_pred = temp_model.predict(horizon)
+            original_pred = scaled_pred * range_val + min_val
+            comparison_predictions[model_name] = original_pred.tolist()
+        except Exception as e:
+            print(f"Model {model_name} failed: {str(e)}")
+            comparison_predictions[model_name] = [None] * horizon
+
+    return comparison_predictions
+
+
+def _get_or_train_model(session_key, request, dates, values):
+    """Get existing model from cache or train a new one"""
+    if not request.force_retrain and request.model_id:
+        trainer = AutoMLTrainer(auto_save=False)
+        trainer.load_model(request.model_id)
+        training_info = {
+            "status": "loaded_from_storage",
+            "model_id": request.model_id
+        }
+        model_used = training_info.get("model_used", "loaded_model")
+    elif session_key not in sessions or request.force_retrain:
+        model_selector = ModelSelector()
+        trainer = AutoMLTrainer(auto_save=True)
+        training_info = trainer.train(
+            dates,
+            values,
+            model_selector,
+            save_model=True
+        )
+        sessions[session_key] = trainer
+        model_used = training_info["model_used"]
+    else:
+        trainer = sessions[session_key]
+        training_info = {"status": "loaded_from_cache"}
+        model_used = trainer.model_name
+
+    return trainer, training_info, model_used
+
+
+# ========== main endpoint ==========
 
 @router.post("/forecast", response_model=ForecastResponse)
 async def forecast(request: ForecastRequest):
@@ -71,95 +170,30 @@ async def forecast(request: ForecastRequest):
 
     try:
         df = pd.read_csv(file_path)
-
-        if request.date_column and request.value_column:
-            if request.date_column not in df.columns or request.value_column not in df.columns:
-                raise HTTPException(status_code=400, detail="Specified columns not found")
-            dates = pd.to_datetime(df[request.date_column]).values
-            values = df[request.value_column].values.astype(float)
-            date_strings = df[request.date_column].astype(str).tolist()
-        else:
-            if df.shape[1] < 2:
-                raise HTTPException(status_code=400, detail="CSV must have at least 2 columns")
-            dates = pd.to_datetime(df.iloc[:, 0]).values
-            values = df.iloc[:, 1].values.astype(float)
-            date_strings = df.iloc[:, 0].astype(str).tolist()
-
-        if len(values) < 10:
-            raise HTTPException(status_code=400, detail="Need at least 10 data points")
-
-        if request.horizon < 1 or request.horizon > 365:
-            raise HTTPException(status_code=400, detail="Horizon must be between 1 and 365")
+        dates, values, date_strings = _validate_data(df, request)
 
         historical_data = {
             "dates": date_strings[-min(30, len(date_strings)):],
             "values": values[-min(30, len(values)):].tolist()
         }
 
-        session_key = f"{request.file_id}_{request.horizon}"
         model_comparison = None
-
         if request.compare_models:
-            model_selector = ModelSelector()
+            model_comparison = _run_all_models_comparison(
+                values,
+                dates,
+                request.horizon
+            )
 
-            # All 4 models for comparison
-            model_configs = [
-                ("short_term", "XGBoost"),
-                ("seasonal", "Prophet"),
-                ("baseline", "Random Forest"),
-                ("lstm", "LSTM")
-            ]
-
-            comparison_predictions = {}
-
-            # Calculate min/max for scaling/unscaling
-            min_val = float(np.min(values))
-            max_val = float(np.max(values))
-            range_val = max_val - min_val if max_val - min_val > 0 else 1.0
-
-            for model_key, model_name in model_configs:
-                try:
-                    temp_trainer = AutoMLTrainer(auto_save=False)
-                    temp_model = model_selector.get_model(model_key)
-
-                    # Scale values to [0,1] range for better model performance
-                    scaled_values = (values - min_val) / range_val
-
-                    temp_model.fit(dates, scaled_values)
-                    scaled_pred = temp_model.predict(request.horizon)
-
-                    # Inverse transform to original scale
-                    original_pred = scaled_pred * range_val + min_val
-                    comparison_predictions[model_name] = original_pred.tolist()
-
-                    print(f"✓ Model {model_name} completed successfully")
-
-                except Exception as e:
-                    print(f"✗ Model {model_name} failed: {str(e)}")
-                    # Fill with None values if model fails
-                    comparison_predictions[model_name] = [None] * request.horizon
-
-            model_comparison = comparison_predictions
-
-        if not request.force_retrain and request.model_id:
-            trainer = AutoMLTrainer(auto_save=False)
-            trainer.load_model(request.model_id)
-            training_info = {"status": "loaded_from_storage", "model_id": request.model_id}
-            model_used = training_info.get("model_used", "loaded_model")
-        elif session_key not in sessions or request.force_retrain:
-            model_selector = ModelSelector()
-            trainer = AutoMLTrainer(auto_save=True)
-            training_info = trainer.train(dates, values, model_selector, save_model=True)
-            sessions[session_key] = trainer
-            model_used = training_info["model_used"]
-        else:
-            trainer = sessions[session_key]
-            training_info = {"status": "loaded_from_cache"}
-            model_used = trainer.model_name
+        session_key = f"{request.file_id}_{request.horizon}"
+        trainer, training_info, model_used = _get_or_train_model(
+            session_key,
+            request,
+            dates,
+            values
+        )
 
         predictions = trainer.predict(request.horizon)
-
-        # Store predictions for export
         set_prediction_cache(request.file_id, predictions.tolist(), model_used)
 
         response_data = {
@@ -168,19 +202,29 @@ async def forecast(request: ForecastRequest):
             "model_used": model_used,
             "training_info": training_info,
             "horizon": request.horizon,
-            "model_id": trainer.model_id if hasattr(trainer, 'model_id') else None,
+            "model_id": (
+                trainer.model_id if hasattr(trainer, 'model_id')
+                else None
+            ),
             "historical_data": historical_data,
             "model_comparison": model_comparison
         }
 
         if request.include_confidence:
-            response_data["confidence_intervals"] = calculate_confidence_intervals(predictions)
+            response_data["confidence_intervals"] = (
+                calculate_confidence_intervals(predictions)
+            )
 
         return ForecastResponse(**response_data)
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Forecast failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Forecast failed: {str(e)}"
+        )
 
+
+# ========== utility endpoints ==========
 
 @router.get("/models", response_model=List[SavedModelInfo])
 async def list_models():

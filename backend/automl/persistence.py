@@ -10,12 +10,16 @@ os.makedirs(MODEL_STORAGE_DIR, exist_ok=True)
 
 class ModelPersistence:
     @staticmethod
-    def save_model(model, metadata: Dict[str, Any], model_id: Optional[str] = None) -> str:
+    def save_model(model,
+                   metadata: Dict[str, Any],
+                   model_id: Optional[str] = None) -> str:
         if model_id is None:
             model_id = f"model_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         model_path = os.path.join(MODEL_STORAGE_DIR, f"{model_id}.joblib")
-        metadata_path = os.path.join(MODEL_STORAGE_DIR, f"{model_id}_metadata.json")
+        metadata_path = os.path.join(
+            MODEL_STORAGE_DIR, f"{model_id}_metadata.json"
+        )
 
         # Save model
         joblib.dump(model, model_path)
@@ -40,7 +44,9 @@ class ModelPersistence:
 
     @staticmethod
     def load_metadata(model_id: str) -> Dict[str, Any]:
-        metadata_path = os.path.join(MODEL_STORAGE_DIR, f"{model_id}_metadata.json")
+        metadata_path = os.path.join(
+            MODEL_STORAGE_DIR, f"{model_id}_metadata.json"
+        )
         if not os.path.exists(metadata_path):
             raise FileNotFoundError(f"Metadata for {model_id} not found")
 
@@ -59,7 +65,9 @@ class ModelPersistence:
     @staticmethod
     def delete_model(model_id: str) -> bool:
         model_path = os.path.join(MODEL_STORAGE_DIR, f"{model_id}.joblib")
-        metadata_path = os.path.join(MODEL_STORAGE_DIR, f"{model_id}_metadata.json")
+        metadata_path = os.path.join(
+            MODEL_STORAGE_DIR, f"{model_id}_metadata.json"
+        )
 
         deleted = False
         if os.path.exists(model_path):

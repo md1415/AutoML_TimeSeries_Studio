@@ -1,7 +1,4 @@
 import numpy as np
-import pandas as pd
-import os
-import joblib
 from datetime import datetime
 from ..preprocessing.scaler import TimeSeriesScaler
 from ..preprocessing.anomaly_detection import remove_anomalies
@@ -18,7 +15,12 @@ class AutoMLTrainer:
         self.model_id = None
         self.training_info = {}
 
-    def train(self, dates: np.ndarray, values: np.ndarray, model_selector, save_model: bool = True):
+    def train(
+            self,
+            dates: np.ndarray,
+            values: np.ndarray,
+            model_selector,
+            save_model: bool = True):
         cleaned_values = remove_anomalies(dates, values, method="linear")
 
         scaled_values = self.scaler.fit_transform(cleaned_values)
@@ -34,7 +36,9 @@ class AutoMLTrainer:
             "model_used": self.model.name,
             "data_points": len(values),
             "anomalies_removed": int(np.sum(values != cleaned_values)),
-            "seasonality_score": float(model_selector._detect_seasonality(scaled_values)),
+            "seasonality_score": float(
+                model_selector._detect_seasonality(scaled_values)
+            ),
             "model_key": model_key,
             "training_date": datetime.now().isoformat()
         }
@@ -48,8 +52,14 @@ class AutoMLTrainer:
     def _save_current_model(self) -> str:
         metadata = {
             **self.training_info,
-            "scaler_mean": float(self.scaler.scaler.data_min_[0]) if hasattr(self.scaler, 'scaler') else None,
-            "scaler_scale": float(self.scaler.scaler.scale_[0]) if hasattr(self.scaler, 'scaler') else None
+            "scaler_mean": (
+                float(self.scaler.scaler.data_min_[0])
+                if hasattr(self.scaler, 'scaler') else None
+            ),
+            "scaler_scale": (
+                float(self.scaler.scaler.scale_[0])
+                if hasattr(self.scaler, 'scaler') else None
+            ),
         }
 
         return ModelPersistence.save_model(self.model, metadata)
@@ -71,7 +81,10 @@ class AutoMLTrainer:
             raise ValueError("Model must be trained first")
 
         scaled_predictions = self.model.predict(horizon)
-        original_predictions = self.scaler.inverse_transform(scaled_predictions)
+        original_predictions = (
+            self.scaler.inverse_transform(
+                scaled_predictions)
+        )
         return original_predictions
 
     @staticmethod

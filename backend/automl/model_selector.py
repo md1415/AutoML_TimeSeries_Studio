@@ -1,5 +1,10 @@
 import numpy as np
-from .base_models import XGBoostWrapper, ProphetWrapper, RandomForestWrapper, LSTMWrapper
+from .base_models import (
+    XGBoostWrapper,
+    ProphetWrapper,
+    RandomForestWrapper,
+    LSTMWrapper
+)
 
 
 class ModelSelector:
@@ -41,7 +46,10 @@ class ModelSelector:
         if n < 14:
             return 0.0
 
-        autocorr = np.correlate(values - np.mean(values), values - np.mean(values), mode='full')
+        autocorr = np.correlate(values - np.mean(values),
+                                values - np.mean(values),
+                                mode='full'
+                                )
         autocorr = autocorr[len(autocorr) // 2:]
 
         if len(autocorr) < 8:
@@ -60,7 +68,8 @@ class ModelSelector:
         if model_key == "lstm":
             if self.values is not None:
                 lookback = max(5, min(30, int(len(self.values) * 0.15)))
-                print(f"Initializing LSTM with lookback={lookback}, data_points={len(self.values)}")
+                print(f"Initializing LSTM with lookback={lookback},"
+                      f" data_points={len(self.values)}")
                 return LSTMWrapper(lookback=lookback, epochs=50)
             else:
                 return LSTMWrapper(lookback=10, epochs=50)

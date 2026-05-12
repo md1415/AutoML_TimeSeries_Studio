@@ -3,12 +3,11 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# flake8: noqa: E402
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-
-# Import routers from local routes package
 from routes.upload import router as upload_router
 from routes.forecast import router as forecast_router
 from routes.export import router as export_router
@@ -31,12 +30,14 @@ frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
 if os.path.exists(frontend_path):
     app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 
+
 @app.get("/")
 async def serve_frontend():
     index_path = os.path.join(frontend_path, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     return {"message": "AutoML Time Series Studio API is running"}
+
 
 @app.get("/health")
 async def health_check():

@@ -6,14 +6,22 @@ from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "temp_uploads")
+UPLOAD_DIR = os.path.join(
+    os.path.dirname(
+        os.path.dirname(
+            os.path.dirname(__file__))),
+    "temp_uploads"
+)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @router.post("/upload")
 async def upload_csv(file: UploadFile = File(...)):
     if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="Only CSV files are allowed")
+        raise HTTPException(
+            status_code=400,
+            detail="Only CSV files are allowed"
+        )
 
     file_id = str(uuid.uuid4())
     file_path = os.path.join(UPLOAD_DIR, f"{file_id}.csv")
